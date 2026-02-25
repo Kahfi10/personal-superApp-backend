@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>SuperApp - Musik Tester</title>
+<style>
+body { font-family: Arial, sans-serif; padding: 50px; background-color: #f4f4f9; }
+.card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 400px; }
+input { margin-bottom: 10px; padding: 8px; width: 90%; }
+button { padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="card">
+    <h2>🎵 Upload Lagu ke Go-Server</h2>
+    <form action="http://localhost:8080/songs" method="post" enctype="multipart/form-data">
+        <label>Judul Lagu:</label><br>
+        <input type="text" name="title" required><br>
+
+        <label>Artis/Penyanyi:</label><br>
+        <input type="text" name="artist" required><br>
+
+        <label>Pilih File MP3:</label><br>
+        <input type="file" name="audio" accept="audio/*" required><br><br>
+
+        <button type="submit">Upload Sekarang</button>
+    </form>
+</div>
+</body>
+</html>

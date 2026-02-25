@@ -1,11 +1,21 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware # Tambahkan ini
 from pydantic import BaseModel
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from security import encrypt_note, decrypt_note
 
+# Inisialisasi Aplikasi FastAPI
 app = FastAPI(title="SuperApp - Security Core API")
 
+# --- TAMBAHKAN BLOK CORS INI ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Mengizinkan semua port (termasuk 5173 milik React)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 DB_CONFIG = {
     "dbname": "postgres",
     "user": "postgres",
