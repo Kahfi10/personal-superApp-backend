@@ -4,6 +4,8 @@ from pydantic import BaseModel
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from security import encrypt_note, decrypt_note
+from uuid import uuid4
+from typing import Optional
 
 # Inisialisasi Aplikasi FastAPI
 app = FastAPI(title="SuperApp - Security Core API")
@@ -25,7 +27,7 @@ DB_CONFIG = {
 }
 
 class NoteCreate(BaseModel):
-    user_id: str
+    user_id: Optional[str] = None  # Jika kosong, akan auto-generate dengan UUID
     title: str
     content: str
     master_password: str
@@ -38,15 +40,17 @@ def get_db_connection():
 
 @app.post("/notes/")
 def create_secure_note(note: NoteCreate):
+    # Auto-generate User ID jika tidak diberikan
+    user_id = note.user_id if note.user_id else str(uuid4())
     encrypted_data = encrypt_note(note.master_password, note.content)
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
         query = "INSERT INTO notes (user_id, title, content, encryption_iv, encryption_tag) VALUES (%s, %s, %s, %s, %s) RETURNING id;"
-        cursor.execute(query, (note.user_id, note.title, encrypted_data["ciphertext"], encrypted_data["nonce"], encrypted_data["salt"]))
+        cursor.execute(query, (user_id, note.title, encrypted_data["ciphertext"], encrypted_data["nonce"], encrypted_data["salt"]))
         new_note_id = cursor.fetchone()['id']
         conn.commit()
-        return {"message": "Catatan aman berhasil disimpan!", "note_id": new_note_id}
+        return {"message": "Catatan aman berhasil disimpan!", "note_id": new_note_id, "user_id": user_id}
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")

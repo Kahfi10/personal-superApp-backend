@@ -1,0 +1,23 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run Python API",
+            "type": "shell",
+            "command": "cmd",
+            "args": [
+                "/c",
+                "cd /d ${workspaceFolder}\\python-core && ${workspaceFolder}\\.venv\\Scripts\\activate.bat && uvicorn main:app --reload"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        }
+    ]
+}
