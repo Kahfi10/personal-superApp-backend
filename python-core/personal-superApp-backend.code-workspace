@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "../../Users/ASUS/superapp-frontend"
+		}
+	],
+	"settings": {
+		"powershell.cwd": "personal-superApp-backend"
+	}
+}

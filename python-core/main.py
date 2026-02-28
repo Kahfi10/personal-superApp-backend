@@ -38,6 +38,11 @@ class NoteCreate(BaseModel):
 class NoteDecrypt(BaseModel):
     master_password: str
 
+class NoteUpdate(BaseModel):
+    title: str
+    content: str
+    master_password: str
+
 def get_db_connection():
     return psycopg2.connect(**DB_CONFIG, cursor_factory=RealDictCursor)
 
@@ -128,6 +133,68 @@ def read_secure_note(note_id: str, request: NoteDecrypt):
         except Exception:
             raise HTTPException(status_code=401, detail="Master password salah atau data korup.")
         return {"id": note_id, "title": result['title'], "decrypted_content": plaintext}
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.put("/notes/{note_id}")
+def update_secure_note(note_id: str, note: NoteUpdate):
+    encrypted_data = encrypt_note(note.master_password, note.content)
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT id FROM notes WHERE id = %s;", (note_id,))
+        existing_note = cursor.fetchone()
+        if not existing_note:
+            raise HTTPException(status_code=404, detail="Catatan tidak ditemukan")
+
+        cursor.execute(
+            """
+            UPDATE notes
+            SET title = %s,
+                content = %s,
+                encryption_iv = %s,
+                encryption_tag = %s
+            WHERE id = %s;
+            """,
+            (
+                note.title,
+                encrypted_data["ciphertext"],
+                encrypted_data["nonce"],
+                encrypted_data["salt"],
+                note_id,
+            ),
+        )
+        conn.commit()
+        return {"message": "Catatan berhasil diupdate!", "note_id": note_id}
+    except HTTPException:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.delete("/notes/{note_id}")
+def delete_note(note_id: str):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM notes WHERE id = %s RETURNING id;", (note_id,))
+        deleted_note = cursor.fetchone()
+        if not deleted_note:
+            raise HTTPException(status_code=404, detail="Catatan tidak ditemukan")
+
+        conn.commit()
+        return {"message": "Catatan berhasil dihapus!", "note_id": note_id}
+    except HTTPException:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     finally:
         cursor.close()
         conn.close()
