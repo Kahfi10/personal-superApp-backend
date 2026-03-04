@@ -59,7 +59,34 @@ r.GET("/ping", func(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Media Service Go Menyala dan Siap Streaming!"})
 })
 
-// 5. API Endpoint: Upload Lagu
+// 5. API Endpoint: Get All Songs
+r.GET("/songs", func(c *gin.Context) {
+	rows, err := db.Query("SELECT id, title, artist, file_url FROM songs ORDER BY id DESC")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data lagu"})
+		return
+	}
+	defer rows.Close()
+
+	songs := []gin.H{}
+	for rows.Next() {
+		var id int
+		var title, artist, fileURL string
+		if err := rows.Scan(&id, &title, &artist, &fileURL); err != nil {
+			continue
+		}
+		songs = append(songs, gin.H{
+			"id":       id,
+			"title":    title,
+			"artist":   artist,
+			"file_url": fileURL,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"songs": songs})
+})
+
+// 6. API Endpoint: Upload Lagu
 r.POST("/songs", func(c *gin.Context) {
 	title := c.PostForm("title")
 	artist := c.PostForm("artist")
@@ -86,7 +113,7 @@ r.POST("/songs", func(c *gin.Context) {
 
 	// Simpan datanya (Judul, Artis, URL) ke PostgreSQL
 	sqlStatement := `INSERT INTO songs (title, artist, file_url) VALUES ($1, $2, $3) RETURNING id`
-	var id string
+	var id int
 	err = db.QueryRow(sqlStatement, title, artist, fileURL).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan ke database"})
