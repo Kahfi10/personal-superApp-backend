@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
@@ -36,6 +37,21 @@ func main() {
 	}
 	fmt.Println("Berhasil konek ke PostgreSQL dari Go!")
 
+	// Create songs table if it doesn't exist
+	createTableSQL := `
+	CREATE TABLE IF NOT EXISTS songs (
+		id SERIAL PRIMARY KEY,
+		title VARCHAR(255) NOT NULL,
+		artist VARCHAR(255) NOT NULL,
+		file_url TEXT NOT NULL,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	);`
+	_, err = db.Exec(createTableSQL)
+	if err != nil {
+		log.Fatal("Gagal membuat tabel songs:", err)
+	}
+	fmt.Println("Tabel songs siap!")
+
 	// 2. Inisialisasi Gin Router
 	r := gin.Default()
 
@@ -53,6 +69,10 @@ func main() {
 	// 3. FITUR STREAMING: Menyajikan file statis
 	// Ini membuat aplikasi Frontend nanti bisa memutar lagu langsung pakai URL
 	r.Static("/media", "./uploads")
+
+	// Create uploads/songs directory if not exists
+	os.MkdirAll("uploads/songs", 0755)
+	fmt.Println("Directory uploads/songs ready!")
 
 	// 4. API Endpoint: Cek status server
 	r.GET("/ping", func(c *gin.Context) {
@@ -91,12 +111,16 @@ func main() {
 		title := c.PostForm("title")
 		artist := c.PostForm("artist")
 
+		fmt.Printf("[UPLOAD] Title: %s, Artist: %s\n", title, artist)
+
 		// Ambil file mp3 dari request
 		file, err := c.FormFile("audio")
 		if err != nil {
+			fmt.Printf("[ERROR] File retrieval failed: %v\n", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "File audio tidak ditemukan"})
 			return
 		}
+		fmt.Printf("[UPLOAD] File received: %s (size: %d bytes)\n", file.Filename, file.Size)
 
 		// Tentukan nama dan lokasi simpan
 		filename := filepath.Base(file.Filename)
@@ -107,18 +131,22 @@ func main() {
 
 		// Simpan file fisik ke dalam folder laptop
 		if err := c.SaveUploadedFile(file, savePath); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan file ke disk"})
+			fmt.Printf("[ERROR] File save failed: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan file ke disk: " + err.Error()})
 			return
 		}
+		fmt.Printf("[UPLOAD] File saved to: %s\n", savePath)
 
 		// Simpan datanya (Judul, Artis, URL) ke PostgreSQL
 		sqlStatement := `INSERT INTO songs (title, artist, file_url) VALUES ($1, $2, $3) RETURNING id`
-		var id int
+		var id string // Change to string to handle UUID
 		err = db.QueryRow(sqlStatement, title, artist, fileURL).Scan(&id)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan ke database"})
+			fmt.Printf("[ERROR] Database insert failed: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan ke database: " + err.Error()})
 			return
 		}
+		fmt.Printf("[SUCCESS] Song saved with ID: %s\n", id)
 
 		// Beri respon sukses
 		c.JSON(http.StatusOK, gin.H{
